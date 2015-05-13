@@ -1,0 +1,18 @@
+export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+KERNEL_VERSION=3.17.4-1eeeck1
+
+post_install() {
+  depmod -a $KERNEL_VERSION
+  if grep "^[^#]*[[:space:]]/boot" etc/fstab 2>&1 >/dev/null; 
+  then
+    if ! grep "[[:space:]]/boot" etc/mtab 2>&1 >/dev/null; 
+    then
+      echo "WARNING: /boot appears to be a seperate partition but is not mounted."
+      echo " You probably just broke your system. Congratulations."	
+    fi
+  fi
+}
+
+post_upgrade() {
+  depmod -a $KERNEL_VERSION
+}
