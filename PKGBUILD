@@ -23,11 +23,12 @@ source=("http://www.kernel.org/pub/linux/kernel/v4.x/${_srcname}.tar.xz"
         '61-eee-ssd.rules'
         'kernelconfig')
 
-md5sums=('9e854df51ca3fef8bfe566dbd7b89241'
-         '9db3178b87ddf7c05e6191bf57645610'
-         '132112d60831bf40dcb812fa7ab72f21'
+md5sums=('a86916bd12798220da9eb4a1eec3616d'
+         'a5a2d31a62688759482968b9c1dc135c'
+         '4a799bb6e601f49ad3adff004ac55ef8'
+         'f5d607655b1a595332d7861f9932b6ad'
+         'b603f871299fd68ec5a48a2552153dc3'
          'df7fceae6ee5d7e7be7b60ecd7f6bb35'
-         'b16aa6df2d162c3f14dbb87a6165eaa2'
          '6100b3e13c4c24ce3c887a1ae36ab7f1'
          '3c904decf8698ed60a58ed4342ed6f7b')
 
