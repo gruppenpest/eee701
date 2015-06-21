@@ -7,7 +7,7 @@ _ckpatchversion=1
 _majorver=4.0
 _ckpatchname="patch-${_majorver}-ck${_ckpatchversion}"
 _srcname=linux-${_majorver}
-pkgver=4.0.2
+pkgver=4.0.5
 pkgrel=1
 arch=('i686')
 license=('GPL2')
@@ -16,21 +16,23 @@ options=('!strip')
 url="http://www.kernel.org"
 source=("http://www.kernel.org/pub/linux/kernel/v4.x/${_srcname}.tar.xz"
         "http://www.kernel.org/pub/linux/kernel/v4.x/patch-${pkgver}.xz"
-        "http://ck.kolivas.org/patches/4.0/${_majorver}/${_majorver}-ck${_ckpatchversion}/${_ckpatchname}.bz2"
+        "http://ck.kolivas.org/patches/4.0/4.0/4.0-ck${_ckpatchversion}/${_ckpatchname}.bz2"
         "http://ck.kolivas.org/patches/bfs/4.0/4.0/pending/bfs462-rtmn-fix.patch"
         "http://ck.kolivas.org/patches/bfs/4.0/4.0/pending/bfs462-update_inittask.patch"
+        'bfs462-nosubmit.patch'
         'change-default-console-loglevel.patch'
         '61-eee-ssd.rules'
         'kernelconfig')
 
 md5sums=('a86916bd12798220da9eb4a1eec3616d'
-         'a5a2d31a62688759482968b9c1dc135c'
+         'd634b677385910495fd0c831c0cc5520'
          '4a799bb6e601f49ad3adff004ac55ef8'
          'f5d607655b1a595332d7861f9932b6ad'
          'b603f871299fd68ec5a48a2552153dc3'
+         '3ee34380eadb815848e4ad8859955540'
          'df7fceae6ee5d7e7be7b60ecd7f6bb35'
          '6100b3e13c4c24ce3c887a1ae36ab7f1'
-         '3c904decf8698ed60a58ed4342ed6f7b')
+         'd1034eac9a46241036858864f5354b19')
 
 prepare() {
   # get into the linux source directory and start some magic
