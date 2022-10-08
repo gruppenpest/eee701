@@ -1,61 +1,62 @@
-# Maintainer: gruppenpest <drgruppenpest@softhome.net>
-# Previous maintainer: OK <ok100.ok100.ok100@gmail.com>
-# Based on kernel-eee PKGBUILD by Dan McGee <dan@archlinux.org>
+# $Id$
+# Maintainer: gruppenpest <gruppenpest@home>
+# PKGBUILD aped from official linux-lts (4.14) package
+# removed depend on linux-firmware
 
-pkgname=(linux-eee-ck linux-eee-ck-headers)
-_ckpatchversion=1
-_majorver=4.0
-_ckpatchname="patch-${_majorver}-ck${_ckpatchversion}"
-_srcname=linux-${_majorver}
-pkgver=4.0.5
+pkgbase=linux-eee-lts
+#pkgbase=linux-lts-custom
+_srcname=linux-4.9
+pkgver=4.9.330
 pkgrel=1
-arch=('i686')
+arch=('pentium4')
+url="https://www.kernel.org/"
 license=('GPL2')
-makedepends=('kmod' 'inetutils' 'bc')
+makedepends=('xmlto' 'kmod' 'inetutils' 'bc' 'libelf')
 options=('!strip')
-url="http://www.kernel.org"
-source=("http://www.kernel.org/pub/linux/kernel/v4.x/${_srcname}.tar.xz"
-        "http://www.kernel.org/pub/linux/kernel/v4.x/patch-${pkgver}.xz"
-        "http://ck.kolivas.org/patches/4.0/4.0/4.0-ck${_ckpatchversion}/${_ckpatchname}.bz2"
-        "http://ck.kolivas.org/patches/bfs/4.0/4.0/pending/bfs462-rtmn-fix.patch"
-        "http://ck.kolivas.org/patches/bfs/4.0/4.0/pending/bfs462-update_inittask.patch"
-        'bfs462-nosubmit.patch'
-        'change-default-console-loglevel.patch'
-        '61-eee-ssd.rules'
-        'kernelconfig')
-
-md5sums=('a86916bd12798220da9eb4a1eec3616d'
-         'd634b677385910495fd0c831c0cc5520'
-         '4a799bb6e601f49ad3adff004ac55ef8'
-         'f5d607655b1a595332d7861f9932b6ad'
-         'b603f871299fd68ec5a48a2552153dc3'
-         '3ee34380eadb815848e4ad8859955540'
-         'df7fceae6ee5d7e7be7b60ecd7f6bb35'
-         '6100b3e13c4c24ce3c887a1ae36ab7f1'
-         'd1034eac9a46241036858864f5354b19')
+source=(https://www.kernel.org/pub/linux/kernel/v4.x/${_srcname}.tar.xz
+        https://www.kernel.org/pub/linux/kernel/v4.x/patch-${pkgver}.xz
+        'config'         # the main kernel config file
+        '60-linux-eee-lts.hook'  # pacman hook for depmod
+        ## we don't need no initramfs
+        #'90-linux-eee-lts.hook'  # pacman hook for initramfs regeneration
+        'linux-eee-lts.preset'   # standard config files for mkinitcpio ramdisk
+        0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch)
+        
+sha256sums=('029098dcffab74875e086ae970e3828456838da6e0ba22ce3f64ef764f3d7f1a'
+            '581777562ce7872c2998b67fb9e9e53ef5d4a8a14eaf98744884ea57c6237d15'
+            '51032b4df6d462bd6929f842c04949bd30c018fd7899c3d8e989fbe75c80ac77'
+            'ae2e95db94ef7176207c690224169594d49445e04249d2499e9d2fbc117a0b21'
+            'ad6344badc91ad0630caacde83f7f9b97276f80d26a20619a87952be65492c65'
+            '36b1118c8dedadc4851150ddd4eb07b1c58ac5bbf3022cc2501a27c2b476da98')
+            
+_kernelname=${pkgbase#linux}
 
 prepare() {
-  # get into the linux source directory and start some magic
-  cd "${_srcname}"
+  cd ${_srcname}
 
   # add upstream patch
-  patch -p1 -i "${srcdir}/patch-${pkgver}"
+  patch -p1 -i ../patch-${pkgver}
 
-  # set DEFAULT_CONSOLE_LOGLEVEL to 4 (same value as the 'quiet' kernel param)
-  # remove this when a Kconfig knob is made available by upstream
-  # (relevant patch sent upstream: https://lkml.org/lkml/2011/7/26/227)
-  patch -Np1 -i ${srcdir}/change-default-console-loglevel.patch
+  #chmod +x tools/objtool/sync-check.sh  # GNU patch doesn't support git-style file mode
+  # we don't get the luxury of objtool
 
-  #patch source with ck patchset with BFS
-  # Fix double name in EXTRAVERSION
-  sed -i -re "s/^(.EXTRAVERSION).*$/\1 = /" "${srcdir}/${_ckpatchname}"
-  msg "Patching source with ck1 including BFS v0.462"
-  patch -Np1 -i "${srcdir}/${_ckpatchname}"
+  # security patches
 
-  ### Clean tree and copy ARCH config over
-  msg "Running make mrproper to clean source tree"
-  make mrproper
-  cp ../kernelconfig ./.config
+  # add latest fixes from stable queue, if needed
+  # http://git.kernel.org/?p=linux/kernel/git/stable/stable-queue.git
+
+  # disable USER_NS for non-root users by default
+  patch -Np1 -i ../0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch
+
+  # https://bugs.archlinux.org/task/56711
+  #patch -Np1 -i ../0002-drm-i915-edp-Only-use-the-alternate-fixed-mode-if-it.patch
+
+  cp -Tf ../config .config
+
+  if [ "${_kernelname}" != "" ]; then
+    sed -i "s|CONFIG_LOCALVERSION=.*|CONFIG_LOCALVERSION=\"${_kernelname}\"|g" ./.config
+    sed -i "s|CONFIG_LOCALVERSION_AUTO=.*|CONFIG_LOCALVERSION_AUTO=n|" ./.config
+  fi
 
   # set extraversion to pkgrel
   sed -ri "s|^(EXTRAVERSION =).*|\1 -${pkgrel}|" Makefile
@@ -63,192 +64,174 @@ prepare() {
   # don't run depmod on 'make install'. We'll do this ourselves in packaging
   sed -i '2iexit 0' scripts/depmod.sh
 
-  msg "Running make prepare for you to enable patched options of your choosing"
+  # get kernel version
   make prepare
+
+  # load configuration
+  # Configure the kernel. Replace the line below with one of your choice.
+  # make menuconfig # CLI menu for configuration
+  make nconfig # new CLI menu for configuration
+  #make xconfig # X-based configuration
+  #make oldconfig # using old config from previous kernel version
+  # ... or manually edit .config
+
+  # rewrite configuration
+  yes "" | make config >/dev/null
 }
 
 build() {
-  cd "${_srcname}"
+  cd ${_srcname}
 
-
-  # to modify kernel settings, uncomment the following line
-  # make menuconfig
-
-  # build!
   make ${MAKEFLAGS} LOCALVERSION= bzImage modules
 }
 
-package_linux-eee-ck() {
-  pkgdesc='Linux Kernel and modules for the Asus Eee PC 701, with Brain Fuck Scheduler v0.462'
-  #pkgdesc="${_Kpkgdesc}"
+_package() {
+  pkgdesc="The ${pkgbase/linux/Linux} kernel and modules"
+  [ "${pkgbase}" = "linux" ] && groups=('base')
+  depends=('coreutils' 'kmod' 'mkinitcpio>=0.7')
+  optdepends=('crda: to set the correct wireless channels of your country')
+  #backup=("etc/mkinitcpio.d/${pkgbase}.preset")
+  install=linux-eee-lts.install
 
-  provides=("linux-eee-ck=${pkgver}")
-  depends=('coreutils' 'module-init-tools')
-  optdepends=('crda: for wireless regulatory domain support'
-            'iw: for wireless configuration support')
-  replaces=('linux-uvc-eee-svn' 'madwifi-eee-svn')
-  install='linux-eee-ck.install'
-
-  cd "${_srcname}"
-
-  KARCH=x86
+  cd ${_srcname}
 
   # get kernel version
   _kernver="$(make LOCALVERSION= kernelrelease)"
+  _basekernel=${_kernver%%-*}
+  _basekernel=${_basekernel%.*}
 
-  mkdir -p "${pkgdir}"/{/lib/firmware,lib/modules,boot}
-  make LOCALVERSION= INSTALL_MOD_PATH="${pkgdir}" modules_install
-  cp arch/$KARCH/boot/bzImage "${pkgdir}/boot/vmlinuz-linux-eee-ck"
+  mkdir -p "${pkgdir}"/{boot,usr/lib/modules}
+  #make nconfig
+  make LOCALVERSION= INSTALL_MOD_PATH="${pkgdir}/usr" modules_install
+  cp arch/x86/boot/bzImage "${pkgdir}/boot/vmlinuz-${pkgbase}"
 
-  # set correct depmod command for install
-  cp -f "${startdir}/${install}" "${startdir}/${install}.pkg"
-  true && install=${install}.pkg
+  # make room for external modules
+  local _extramodules="extramodules-${_basekernel}${_kernelname:--lts}"
+  ln -s "../${_extramodules}" "${pkgdir}/usr/lib/modules/${_kernver}/extramodules"
 
-  sed \
-	-e  "s/KERNEL_NAME=.*/KERNEL_NAME=-eee-ck/g" \
-	-e  "s/KERNEL_VERSION=.*/KERNEL_VERSION=${_kernver}/g" \
-	-i "${startdir}/${install}"
-
-  # udev rules for SSD drives/SD Cards, they is not rotational
-  mkdir -p ${pkgdir}/lib/udev/rules.d/
-  install -m644 ${srcdir}/61-eee-ssd.rules ${pkgdir}/lib/udev/rules.d/
+  # add real version for building modules and running depmod from hook
+  echo "${_kernver}" |
+    install -Dm644 /dev/stdin "${pkgdir}/usr/lib/modules/${_extramodules}/version"
 
   # remove build and source links
-  rm "${pkgdir}"/lib/modules/${_kernver}/{build,source}
+  rm "${pkgdir}"/usr/lib/modules/${_kernver}/{source,build}
   # remove the firmware
-  rm -rf "${pkgdir}/lib/firmware"
-  # gzip -9 all modules
-  find "${pkgdir}" -name '*.ko' -exec gzip -9 {} \;
-  # Now we call depmod...
-  depmod -b "${pkgdir}" -F System.map "${_kernver}"
-
-  # move module tree /lib -> /usr/lib
-  mkdir -p "${pkgdir}/usr"
-  mv "${pkgdir}/lib" "${pkgdir}/usr/"
+  rm -rf "${pkgdir}/usr/lib/firmware"
+  # now we call depmod...
+  depmod -b "${pkgdir}/usr" -F System.map "${_kernver}"
 
   # add vmlinux
-  install -D -m644 vmlinux "${pkgdir}/usr/lib/modules/${_kernver}/build/vmlinux"
+  install -Dt "${pkgdir}/usr/lib/modules/${_kernver}/build" -m644 vmlinux
+
+  # sed expression for following substitutions
+  local _subst="
+    s|%PKGBASE%|${pkgbase}|g
+    s|%KERNVER%|${_kernver}|g
+    s|%EXTRAMODULES%|${_extramodules}|g
+  "
+
+  # hack to allow specifying an initially nonexisting install file
+  sed "${_subst}" "${startdir}/${install}" > "${startdir}/${install}.pkg"
+  true && install=${install}.pkg
+
+  # install mkinitcpio preset file
+  sed "${_subst}" ../linux-eee-lts.preset |
+    install -Dm644 /dev/stdin "${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
+
+  # install pacman hooks
+  sed "${_subst}" ../60-linux-eee-lts.hook |
+    install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/60-${pkgbase}.hook"
+  #sed "${_subst}" ../90-linux-eee-lts.hook |
+  #  install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/90-${pkgbase}.hook"
 }
 
-package_linux-eee-ck-headers() {
-  pkgdesc='Header files and scripts to build modules for linux-eee-ck.'
-  depends=('linux-eee-ck') # added to keep kernel and headers packages matched
-  replaces=('kernel26-ck-headers')
+_package-headers() {
+  pkgdesc="Header files and scripts for building modules for ${pkgbase/linux/Linux} kernel"
 
-  install -dm755 "${pkgdir}/usr/lib/modules/${_kernver}"
+  cd ${_srcname}
+  local _builddir="${pkgdir}/usr/lib/modules/${_kernver}/build"
 
-  cd "${srcdir}/${_srcname}"
-  install -D -m644 Makefile \
-    "${pkgdir}/usr/lib/modules/${_kernver}/build/Makefile"
-  install -D -m644 kernel/Makefile \
-    "${pkgdir}/usr/lib/modules/${_kernver}/build/kernel/Makefile"
-  install -D -m644 .config \
-    "${pkgdir}/usr/lib/modules/${_kernver}/build/.config"
+  install -Dt "${_builddir}" -m644 Makefile .config Module.symvers
+  install -Dt "${_builddir}/kernel" -m644 kernel/Makefile
 
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/include"
+  mkdir "${_builddir}/.tmp_versions"
 
-  for i in acpi asm-generic config crypto drm generated keys linux math-emu \
-    media net pcmcia scsi sound trace uapi video xen; do
-    cp -a include/${i} "${pkgdir}/usr/lib/modules/${_kernver}/build/include/"
-  done
+  cp -t "${_builddir}" -a include scripts
 
-  # copy arch includes for external modules
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/x86"
-  cp -a arch/x86/include "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/x86/"
+  install -Dt "${_builddir}/arch/x86" -m644 arch/x86/Makefile
+  install -Dt "${_builddir}/arch/x86/kernel" -m644 arch/x86/kernel/asm-offsets.s
 
-  # copy files necessary for later builds, like nvidia and vmware
-  cp Module.symvers "${pkgdir}/usr/lib/modules/${_kernver}/build"
-  cp -a scripts "${pkgdir}/usr/lib/modules/${_kernver}/build"
+  cp -t "${_builddir}/arch/x86" -a arch/x86/include
 
-  # fix permissions on scripts dir
-  chmod og-w -R "${pkgdir}/usr/lib/modules/${_kernver}/build/scripts"
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/.tmp_versions"
+  install -Dt "${_builddir}/drivers/md" -m644 drivers/md/*.h
+  install -Dt "${_builddir}/net/mac80211" -m644 net/mac80211/*.h
 
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/kernel"
-
-  cp arch/$KARCH/Makefile "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/"
-
-  cp arch/$KARCH/Makefile_32.cpu "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/"
-  cp arch/$KARCH/kernel/asm-offsets.s "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/kernel/"
-
-  # add docbook makefile
-  install -D -m644 Documentation/DocBook/Makefile \
-  "${pkgdir}/usr/lib/modules/${_kernver}/build/Documentation/DocBook/Makefile"
-
-  # add dm headers
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/md"
-  cp drivers/md/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/md"
-
-  # add inotify.h
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/include/linux"
-  cp include/linux/inotify.h "${pkgdir}/usr/lib/modules/${_kernver}/build/include/linux/"
-
-  # add wireless headers
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/net/mac80211/"
-  cp net/mac80211/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/net/mac80211/"
-
-  # add dvb headers for external modules
-  # in reference to:
   # http://bugs.archlinux.org/task/9912
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb/dvb-core"
-  cp drivers/media/dvb-core/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb/dvb-core/"
-  # and...
-  # http://bugs.archlinux.org/task/11194
+  install -Dt "${_builddir}/drivers/media/dvb-core" -m644 drivers/media/dvb-core/*.h
 
-  ### DO NOT MERGE OUT THIS IF STATEMENT
-  ### IT AFFECTS USERS WHO STRIP OUT THE DVB STUFF SO THE OFFICIAL ARCH CODE HAS A CP
-  ### LINE THAT CAUSES MAKEPKG TO END IN AN ERROR
-  ###
-  if [ -d include/config/dvb/ ]; then
-      mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/include/config/dvb/"
-      cp include/config/dvb/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/include/config/dvb/"
-  fi
-
-  # add dvb headers for http://mcentral.de/hg/~mrec/em28xx-new
-  # in reference to:
   # http://bugs.archlinux.org/task/13146
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-frontends/"
-  cp drivers/media/dvb-frontends/lgdt330x.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-frontends/"
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/i2c/"
-  cp drivers/media/i2c/msp3400-driver.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/i2c/"
+  install -Dt "${_builddir}/drivers/media/i2c" -m644 drivers/media/i2c/msp3400-driver.h
 
-  # add dvb headers
-  # in reference to:
   # http://bugs.archlinux.org/task/20402
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/usb/dvb-usb"
-  cp drivers/media/usb/dvb-usb/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/usb/dvb-usb/"
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-frontends"
-  cp drivers/media/dvb-frontends/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-frontends/"
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/tuners"
-  cp drivers/media/tuners/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/tuners/"
+  install -Dt "${_builddir}/drivers/media/usb/dvb-usb" -m644 drivers/media/usb/dvb-usb/*.h
+  install -Dt "${_builddir}/drivers/media/dvb-frontends" -m644 drivers/media/dvb-frontends/*.h
+  install -Dt "${_builddir}/drivers/media/tuners" -m644 drivers/media/tuners/*.h
 
   # add xfs and shmem for aufs building
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/fs/xfs"
-  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/mm"
-  # removed in 3.17 series
-  #cp fs/xfs/xfs_sb.h "${pkgdir}/usr/lib/modules/${_kernver}/build/fs/xfs/xfs_sb.h"
+  mkdir -p "${_builddir}"/{fs/xfs,mm}
 
   # copy in Kconfig files
-  for i in $(find . -name "Kconfig*"); do 
-    mkdir -p "${pkgdir}"/usr/lib/modules/${_kernver}/build/`echo ${i} | sed 's|/Kconfig.*||'`
-    cp ${i} "${pkgdir}/usr/lib/modules/${_kernver}/build/${i}"
-  done
+  find . -name Kconfig\* -exec install -Dm644 {} "${_builddir}/{}" \;
 
-  chown -R root.root "${pkgdir}/usr/lib/modules/${_kernver}/build"
-  find "${pkgdir}/usr/lib/modules/${_kernver}/build" -type d -exec chmod 755 {} \;
-
-  # strip scripts directory
-  find "${pkgdir}/usr/lib/modules/${_kernver}/build/scripts"  -type f -perm -u+w 2>/dev/null | while read binary ; do
-  case "$(file -bi "${binary}")" in
-    *application/x-sharedlib*) # Libraries (.so)
-      /usr/bin/strip ${STRIP_SHARED} "${binary}";;
-    *application/x-archive*) # Libraries (.a)
-      /usr/bin/strip ${STRIP_STATIC} "${binary}";;
-    *application/x-executable*) # Binaries
-      /usr/bin/strip ${STRIP_BINARIES} "${binary}";;
-    esac 
-  done
+  # add objtool for external module building and enabled VALIDATION_STACK option
+  #install -Dt "${_builddir}/tools/objtool" tools/objtool/objtool
 
   # remove unneeded architectures
-  rm -rf "${pkgdir}"/usr/lib/modules/${_kernver}/build/arch/{alpha,arc,arm,arm26,arm64,avr32,blackfin,c6x,cris,frv,h8300,hexagon,ia64,m32r,m68k,m68knommu,metag,mips,microblaze,mn10300,openrisc,parisc,powerpc,ppc,s390,score,sh,sh64,sparc,sparc64,tile,um,unicore32,v850,xtensa}
+  local _arch
+  for _arch in "${_builddir}"/arch/*/; do
+    [[ ${_arch} == */x86/ ]] && continue
+    rm -r "${_arch}"
+  done
+
+  # remove files already in linux-docs package
+  rm -r "${_builddir}/Documentation"
+
+  # remove now broken symlinks
+  find -L "${_builddir}" -type l -printf 'Removing %P\n' -delete
+
+  # Fix permissions
+  chmod -R u=rwX,go=rX "${_builddir}"
+
+  # strip scripts directory
+  local _binary _strip
+  while read -rd '' _binary; do
+    case "$(file -bi "${_binary}")" in
+      *application/x-sharedlib*)  _strip="${STRIP_SHARED}"   ;; # Libraries (.so)
+      *application/x-archive*)    _strip="${STRIP_STATIC}"   ;; # Libraries (.a)
+      *application/x-executable*) _strip="${STRIP_BINARIES}" ;; # Binaries
+      *) continue ;;
+    esac
+    /usr/bin/strip ${_strip} "${_binary}"
+  done < <(find "${_builddir}/scripts" -type f -perm -u+w -print0 2>/dev/null)
 }
+
+_package-docs() {
+  pkgdesc="Kernel hackers manual - HTML documentation that comes with the ${pkgbase/linux/Linux} kernel"
+
+  cd ${_srcname}
+  local _builddir="${pkgdir}/usr/lib/modules/${_kernver}/build"
+
+  mkdir -p "${_builddir}"
+  cp -t "${_builddir}" -a Documentation
+
+  # Fix permissions
+  chmod -R u=rwX,go=rX "${_builddir}"
+}
+
+pkgname=("${pkgbase}" "${pkgbase}-headers" "${pkgbase}-docs")
+for _p in ${pkgname[@]}; do
+  eval "package_${_p}() {
+    $(declare -f "_package${_p#${pkgbase}}")
+    _package${_p#${pkgbase}}
+  }"
+done
